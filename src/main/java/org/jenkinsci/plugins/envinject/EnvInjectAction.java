@@ -1,5 +1,6 @@
 package org.jenkinsci.plugins.envinject;
 
+import com.google.common.collect.Maps;
 import hudson.model.AbstractBuild;
 import hudson.model.Action;
 import org.apache.commons.collections.map.UnmodifiableMap;
@@ -10,9 +11,11 @@ import org.kohsuke.stapler.StaplerProxy;
 import java.io.File;
 import java.io.ObjectStreamException;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Gregory Boissinot
+ * @deprecated Replaced by {@link EnvInjectPluginAction}.
  */
 @Deprecated
 public class EnvInjectAction implements Action, StaplerProxy {
@@ -43,20 +46,44 @@ public class EnvInjectAction implements Action, StaplerProxy {
         return UnmodifiableMap.decorate(envMap);
     }
 
+    @Override
     public String getIconFileName() {
+        if (!EnvInjectPlugin.canViewInjectedVars(build)) {
+            return null;
+        }
         return "document-properties.gif";
     }
 
+    @Override
     public String getDisplayName() {
         return "Environment Variables";
     }
 
+    @Override
     public String getUrlName() {
+        if (!EnvInjectPlugin.canViewInjectedVars(build)) {
+            return null;
+        }
         return URL_NAME;
     }
 
+    protected AbstractBuild getBuild() {
+        return build;
+    }
+    
+    @Override
     public Object getTarget() {
-        return new EnvInjectVarList(envMap);
+        final Set sensitiveVariables = build.getSensitiveBuildVariables();
+        if (!EnvInjectPlugin.canViewInjectedVars(build)) {
+            return EnvInjectVarList.HIDDEN;
+        }
+        
+        return new EnvInjectVarList(Maps.transformEntries(envMap,
+                new Maps.EntryTransformer<String, String, String>() {
+                    public String transformEntry(String key, String value) {
+                        return sensitiveVariables.contains(key) ? "********" : value;
+                    }
+                }));
     }
 
     @SuppressWarnings("unused")

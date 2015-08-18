@@ -20,6 +20,8 @@ import org.jenkinsci.plugins.envinject.service.EnvInjectMasterEnvVarsSetter;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -53,10 +55,13 @@ public class EnvInjectComputerListener extends ComputerListener implements Seria
                 globalPropertiesEnvVars.putAll(((EnvironmentVariablesNodeProperty) nodeProperty).getEnvVars());
             }
 
-            if (nodeProperty instanceof EnvInjectNodeProperty) {
+            final Node node = c.getNode();
+            if (node != null && nodeProperty instanceof EnvInjectNodeProperty) {
                 EnvInjectNodeProperty envInjectNodeProperty = ((EnvInjectNodeProperty) nodeProperty);
                 unsetSystemVariables = envInjectNodeProperty.isUnsetSystemVariables();
-                globalPropertiesEnvVars.putAll(envInjectEnvVarsService.getEnvVarsFileProperty(c.getNode().getRootPath(), logger, envInjectNodeProperty.getPropertiesFilePath(), null, nodeEnvVars));
+                globalPropertiesEnvVars.putAll(envInjectEnvVarsService.getEnvVarsFileProperty(
+                        node.getRootPath(), logger, envInjectNodeProperty.getPropertiesFilePath(), 
+                        null, nodeEnvVars));
             }
 
         }
@@ -77,16 +82,14 @@ public class EnvInjectComputerListener extends ComputerListener implements Seria
 
         Map<String, String> currentEnvVars = new HashMap<String, String>();
 
-        // -- Retrieve Environment variables from master
-        for (NodeProperty<?> nodeProperty : Hudson.getInstance().getGlobalNodeProperties()) {
-            if (nodeProperty instanceof EnvironmentVariablesNodeProperty) {
-                currentEnvVars.putAll(((EnvironmentVariablesNodeProperty) nodeProperty).getEnvVars());
-            }
-        }
-
         EnvInjectLogger logger = new EnvInjectLogger(listener);
         EnvInjectEnvVars envInjectEnvVarsService = new EnvInjectEnvVars(logger);
 
+        final Node node = c.getNode();
+        if (node == null) {
+            throw new EnvInjectException("Node is removed, but the computer has not gone yet");
+        } 
+        
         //Get env vars for the current node
         Map<String, String> nodeEnvVars = nodePath.act(
                 new Callable<Map<String, String>, IOException>() {
@@ -97,7 +100,7 @@ public class EnvInjectComputerListener extends ComputerListener implements Seria
 
         // -- Process slave properties
         boolean unsetSystemVariables = false;
-        for (NodeProperty<?> nodeProperty : c.getNode().getNodeProperties()) {
+        for (NodeProperty<?> nodeProperty : node.getNodeProperties()) {
 
             if (nodeProperty instanceof EnvironmentVariablesNodeProperty) {
                 currentEnvVars.putAll(((EnvironmentVariablesNodeProperty) nodeProperty).getEnvVars());
@@ -106,7 +109,7 @@ public class EnvInjectComputerListener extends ComputerListener implements Seria
             if (nodeProperty instanceof EnvInjectNodeProperty) {
                 EnvInjectNodeProperty envInjectNodeProperty = ((EnvInjectNodeProperty) nodeProperty);
                 unsetSystemVariables = envInjectNodeProperty.isUnsetSystemVariables();
-                currentEnvVars.putAll(envInjectEnvVarsService.getEnvVarsFileProperty(c.getNode().getRootPath(), logger, envInjectNodeProperty.getPropertiesFilePath(), null, nodeEnvVars));
+                currentEnvVars.putAll(envInjectEnvVarsService.getEnvVarsFileProperty(node.getRootPath(), logger, envInjectNodeProperty.getPropertiesFilePath(), null, nodeEnvVars));
             }
         }
 
@@ -128,7 +131,8 @@ public class EnvInjectComputerListener extends ComputerListener implements Seria
     public void onOnline(Computer c, TaskListener listener) throws IOException, InterruptedException {
 
         //Get node path
-        FilePath nodePath = c.getNode().getRootPath();
+        final Node node = c.getNode();
+        final FilePath nodePath = node != null ? node.getRootPath() : null;
         if (nodePath == null) {
             return;
         }

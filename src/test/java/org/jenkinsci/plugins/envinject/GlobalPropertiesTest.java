@@ -2,16 +2,17 @@ package org.jenkinsci.plugins.envinject;
 
 import hudson.model.FreeStyleBuild;
 import hudson.model.Result;
-import hudson.model.Computer;
 import hudson.model.FreeStyleProject;
 import hudson.model.Hudson;
 import hudson.model.Node;
+import hudson.slaves.EnvironmentVariablesNodeProperty;
 import hudson.slaves.NodeProperty;
 import hudson.slaves.NodePropertyDescriptor;
-import hudson.slaves.EnvironmentVariablesNodeProperty;
-import hudson.slaves.SlaveComputer;
 import hudson.tasks.Shell;
 import hudson.util.DescribableList;
+import org.junit.Rule;
+import org.junit.Test;
+import org.jvnet.hudson.test.JenkinsRule;
 
 import java.util.Map;
 import java.util.Map.Entry;
@@ -19,33 +20,28 @@ import java.util.Set;
 
 import junit.framework.Assert;
 
-import org.apache.commons.lang.StringUtils;
-import org.junit.Test;
-import org.jvnet.hudson.test.HudsonTestCase;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertEquals;
 
 /**
  * @author Gregory Boissinot
  */
-public class GlobalPropertiesTest extends HudsonTestCase {
+public class GlobalPropertiesTest {
 
-
-    private FreeStyleProject project;
-
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
-        project = createFreeStyleProject();
-    }
+    @Rule
+    public JenkinsRule jenkins = new JenkinsRule();
 
     @Test
     public void testGlobalPropertiesWithWORKSPACE() throws Exception {
+        FreeStyleProject project = jenkins.createFreeStyleProject();
 
         final String testWorkspaceVariableName = "TEST_WORKSPACE";
         final String testWorkspaceVariableValue = "${WORKSPACE}";
         final String workspaceName = "WORKSPACE";
 
         //A global node property TEST_WORKSPACE
-        DescribableList<NodeProperty<?>, NodePropertyDescriptor> globalNodeProperties = Hudson.getInstance().getGlobalNodeProperties();
+        DescribableList<NodeProperty<?>, NodePropertyDescriptor> globalNodeProperties = jenkins.getInstance()
+                .getGlobalNodeProperties();
         globalNodeProperties.add(new EnvironmentVariablesNodeProperty(new EnvironmentVariablesNodeProperty.Entry(testWorkspaceVariableName, testWorkspaceVariableValue)));
 
         EnvInjectJobProperty jobProperty = new EnvInjectJobProperty();
@@ -55,7 +51,7 @@ public class GlobalPropertiesTest extends HudsonTestCase {
         project.addProperty(jobProperty);
 
         FreeStyleBuild build = project.scheduleBuild2(0).get();
-        Assert.assertEquals(Result.SUCCESS, build.getResult());
+        jenkins.assertBuildStatusSuccess(build);
 
         org.jenkinsci.lib.envinject.EnvInjectAction action = build.getAction(org.jenkinsci.lib.envinject.EnvInjectAction.class);
         Map<String, String> envVars = action.getEnvMap();
@@ -68,9 +64,12 @@ public class GlobalPropertiesTest extends HudsonTestCase {
         assertEquals(workspaceProcessed, testWorkspaceProcessed);
     }
 
-    //Specific use case: We set a global workspace at job level
+    /**
+     * Specific use case: We set a global workspace at job level
+     */
     @Test
     public void testGlobalPropertiesSetWORKSPACE() throws Exception {
+        FreeStyleProject project = jenkins.createFreeStyleProject();
 
         final String testGlobalVariableName = "WORKSPACE";
         final String testGlobalVariableValue = "WORKSPACE_VALUE";
@@ -82,14 +81,13 @@ public class GlobalPropertiesTest extends HudsonTestCase {
 
         StringBuffer propertiesContent = new StringBuffer();
         propertiesContent.append(testJobVariableName).append("=").append(testJobVariableExprValue);
-        EnvInjectJobPropertyInfo info = new EnvInjectJobPropertyInfo(
-                null, propertiesContent.toString(), null, null, null, true);
+        EnvInjectJobPropertyInfo info = new EnvInjectJobPropertyInfo(null, propertiesContent.toString(), null, null, null, true);
         EnvInjectBuildWrapper envInjectBuildWrapper = new EnvInjectBuildWrapper();
         envInjectBuildWrapper.setInfo(info);
         project.getBuildWrappersList().add(envInjectBuildWrapper);
 
         FreeStyleBuild build = project.scheduleBuild2(0).get();
-        Assert.assertEquals(Result.SUCCESS, build.getResult());
+        jenkins.assertBuildStatusSuccess(build);
 
         org.jenkinsci.lib.envinject.EnvInjectAction action = build.getAction(org.jenkinsci.lib.envinject.EnvInjectAction.class);
         Map<String, String> envVars = action.getEnvMap();
@@ -104,18 +102,20 @@ public class GlobalPropertiesTest extends HudsonTestCase {
 
     @Test
     public void testChangeOfGlobalPropertyGetsRecognizedWhenWithoutJobPropertyAndRunOnSlaves() throws Exception {
+        FreeStyleProject project = jenkins.createFreeStyleProject();
 
         final String testVariableName = "TESTVAR";
         final String testVariableValue = "value1";
         final String testVariableValueAfterChange = "value2";
 
         //A global node property TESTVAR
-        DescribableList<NodeProperty<?>, NodePropertyDescriptor> globalNodeProperties = Hudson.getInstance().getGlobalNodeProperties();
+        DescribableList<NodeProperty<?>, NodePropertyDescriptor> globalNodeProperties = jenkins.getInstance()
+                .getGlobalNodeProperties();
         EnvironmentVariablesNodeProperty.Entry testVarEntry = new EnvironmentVariablesNodeProperty.Entry(testVariableName, testVariableValue);
         EnvironmentVariablesNodeProperty testVarNodePropertyItem = new EnvironmentVariablesNodeProperty(testVarEntry);
         globalNodeProperties.add(testVarNodePropertyItem);
 
-        Node slaveNode = createOnlineSlave();
+        Node slaveNode = jenkins.createOnlineSlave();
         project.setAssignedNode(slaveNode);
         project.getBuildersList().add(new Shell("echo \"TESTVAR=$TESTVAR\""));
 
@@ -132,21 +132,24 @@ public class GlobalPropertiesTest extends HudsonTestCase {
         assertNotNull("actual testVariableValue is null", actualTestVariableValueInBuild);
         assertEquals(testVariableValue, actualTestVariableValueInBuild);
 
-        Set<Entry<String, String>> beforeChange = hudson.getComputer(slaveNode.getNodeName()).getEnvironment().entrySet();
+        Set<Entry<String, String>> beforeChange = jenkins.getInstance().getComputer(slaveNode.getNodeName())
+                .getEnvironment()
+                .entrySet();
 
         // now we change the global property variable value...
         testVarEntry = new EnvironmentVariablesNodeProperty.Entry(testVariableName, testVariableValueAfterChange);
         Hudson.getInstance().getGlobalNodeProperties().add(new EnvironmentVariablesNodeProperty(testVarEntry));
 
-        Set<Entry<String, String>> afterChange = hudson.getComputer(slaveNode.getNodeName()).getEnvironment().entrySet();
+        Set<Entry<String, String>> afterChange = jenkins.getInstance().getComputer(slaveNode.getNodeName()).getEnvironment()
+                .entrySet();
         // environment of the slave does not change without restarting it. assert it to make test fail if there will be
         // some kind of auto-restart to reload config.
-        Assert.assertEquals(beforeChange, afterChange);
-        Assert.assertEquals(beforeChange.toString(), afterChange.toString());
+        assertEquals(beforeChange, afterChange);
+        assertEquals(beforeChange.toString(), afterChange.toString());
 
         //...run the job again...
         FreeStyleBuild secondBuild = project.scheduleBuild2(0).get();
-        Assert.assertEquals(Result.SUCCESS, secondBuild.getResult());
+        assertEquals(Result.SUCCESS, secondBuild.getResult());
         assertEquals(slaveNode.getNodeName(), secondBuild.getBuiltOn().getNodeName());
 
         //...and expect the testvariable to have the changed value

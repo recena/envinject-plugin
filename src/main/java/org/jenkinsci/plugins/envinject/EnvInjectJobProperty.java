@@ -2,9 +2,11 @@ package org.jenkinsci.plugins.envinject;
 
 import hudson.DescriptorExtensionList;
 import hudson.Extension;
+import hudson.model.Descriptor;
 import hudson.model.Job;
 import hudson.model.JobProperty;
 import hudson.model.JobPropertyDescriptor;
+import jenkins.model.Jenkins;
 import net.sf.json.JSON;
 import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
@@ -14,7 +16,9 @@ import org.jenkinsci.plugins.envinject.service.EnvInjectContributorManagement;
 import org.kohsuke.stapler.StaplerRequest;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import javax.annotation.CheckForNull;
 
 /**
  * @author Gregory Boissinot
@@ -25,6 +29,7 @@ public class EnvInjectJobProperty<T extends Job<?, ?>> extends JobProperty<T> {
     private boolean on;
     private boolean keepJenkinsSystemVariables;
     private boolean keepBuildVariables;
+    private boolean overrideBuildParameters;
     private EnvInjectJobPropertyContributor[] contributors;
 
     private transient EnvInjectJobPropertyContributor[] contributorsComputed;
@@ -50,6 +55,11 @@ public class EnvInjectJobProperty<T extends Job<?, ?>> extends JobProperty<T> {
     }
 
     @SuppressWarnings("unused")
+    public boolean isOverrideBuildParameters() {
+        return overrideBuildParameters;
+    }
+
+    @SuppressWarnings("unused")
     public EnvInjectJobPropertyContributor[] getContributors() {
         if (contributorsComputed == null) {
             try {
@@ -60,7 +70,7 @@ public class EnvInjectJobProperty<T extends Job<?, ?>> extends JobProperty<T> {
             contributors = contributorsComputed;
         }
 
-        return contributors;
+        return Arrays.copyOf(contributors, contributors.length);
     }
 
     private EnvInjectJobPropertyContributor[] computeEnvInjectContributors() throws org.jenkinsci.lib.envinject.EnvInjectException {
@@ -68,7 +78,7 @@ public class EnvInjectJobProperty<T extends Job<?, ?>> extends JobProperty<T> {
         DescriptorExtensionList<EnvInjectJobPropertyContributor, EnvInjectJobPropertyContributorDescriptor>
                 descriptors = EnvInjectJobPropertyContributor.all();
 
-        //If the config are loaded with success (this step) and the descriptors size doesn't have change
+        // If the config are loaded with success (this step) and the descriptors size doesn't have change
         // we considerate, they are the same, therefore we retrieve instances
         if (contributors != null && contributors.length == descriptors.size()) {
             return contributors;
@@ -111,8 +121,25 @@ public class EnvInjectJobProperty<T extends Job<?, ?>> extends JobProperty<T> {
         this.keepBuildVariables = keepBuildVariables;
     }
 
+    public void setOverrideBuildParameters(boolean overrideBuildParameters) {
+        this.overrideBuildParameters = overrideBuildParameters;
+    }
+
     public void setContributors(EnvInjectJobPropertyContributor[] jobPropertyContributors) {
         this.contributors = jobPropertyContributors;
+    }
+
+    @Override
+    public JobProperty<?> reconfigure(StaplerRequest req, JSONObject form) throws Descriptor.FormException {
+        EnvInjectJobProperty property = (EnvInjectJobProperty) super.reconfigure(req, form);
+        if (property != null && property.info != null && !Jenkins.getInstance().hasPermission(Jenkins.RUN_SCRIPTS)) {
+            // Don't let non RUN_SCRIPT users set arbitrary groovy script
+            property.info = new EnvInjectJobPropertyInfo(property.info.propertiesFilePath, property.info.propertiesContent,
+                                                         property.info.getScriptFilePath(), property.info.getScriptContent(),
+                                                         this.info != null ? this.info.getGroovyScriptContent() : "",
+                                                         property.info.isLoadFilesFromMaster());
+        }
+        return property;
     }
 
     @Extension
@@ -147,6 +174,7 @@ public class EnvInjectJobProperty<T extends Job<?, ?>> extends JobProperty<T> {
                     JSONObject onJSONObject = (JSONObject) onObject;
                     envInjectJobProperty.setKeepJenkinsSystemVariables(onJSONObject.getBoolean("keepJenkinsSystemVariables"));
                     envInjectJobProperty.setKeepBuildVariables(onJSONObject.getBoolean("keepBuildVariables"));
+                    envInjectJobProperty.setOverrideBuildParameters(onJSONObject.getBoolean("overrideBuildParameters"));
 
                     //Process contributions
                     setContributors(req, envInjectJobProperty, onJSONObject);
@@ -178,7 +206,7 @@ public class EnvInjectJobProperty<T extends Job<?, ?>> extends JobProperty<T> {
             return EnvInjectJobPropertyContributor.all();
         }
 
-        public EnvInjectJobPropertyContributor[] getContributorsInstance() {
+        public @CheckForNull EnvInjectJobPropertyContributor[] getContributorsInstance() {
             EnvInjectContributorManagement envInjectContributorManagement = new EnvInjectContributorManagement();
             try {
                 return envInjectContributorManagement.getNewContributorsInstance();

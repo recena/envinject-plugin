@@ -8,7 +8,7 @@
     </f:entry>
 
     <f:entry title="${%Properties Content}"
-             help="/descriptor/org.jenkinsci.plugins.envinject.EnvInjectJobProperty/help/propertiesContent">
+             help="/descriptor/org.jenkinsci.plugins.envinject.EnvInjectBuildWrapper/help/propertiesContent">
         <f:textarea
                 name="envInjectInfoWrapper.propertiesContent"
                 value="${instance.info.propertiesContent}"/>
@@ -26,6 +26,13 @@
         <f:textarea
                 name="envInjectInfoWrapper.scriptContent"
                 value="${instance.info.scriptContent}"/>
+    </f:entry>
+
+    <f:entry title="${%Evaluated Groovy script}"
+            help="/descriptor/org.jenkinsci.plugins.envinject.EnvInjectJobProperty/help/groovyScriptContent">
+        <f:textarea
+                name="envInjectInfoWrapper.groovyScriptContent"
+                value="${instance.info.groovyScriptContent}"/>
     </f:entry>
 
     <f:hidden

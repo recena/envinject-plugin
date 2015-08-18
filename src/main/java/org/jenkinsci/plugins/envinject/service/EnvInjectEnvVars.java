@@ -2,12 +2,18 @@ package org.jenkinsci.plugins.envinject.service;
 
 import groovy.lang.Binding;
 import groovy.lang.GroovyShell;
+import hudson.AbortException;
 import hudson.FilePath;
 import hudson.Launcher;
 import hudson.Util;
-import hudson.model.*;
+import hudson.model.AbstractProject;
+import hudson.model.BuildListener;
+import hudson.model.Hudson;
+import hudson.model.Item;
+import hudson.model.Run;
 import hudson.util.VariableResolver;
 import jenkins.model.Jenkins;
+import org.apache.commons.io.FileUtils;
 import org.jenkinsci.lib.envinject.EnvInjectException;
 import org.jenkinsci.lib.envinject.EnvInjectLogger;
 
@@ -17,6 +23,7 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import javax.annotation.Nonnull;
 
 /**
  * @author Gregory Boissinot
@@ -51,7 +58,8 @@ public class EnvInjectEnvVars implements Serializable {
         return resultMap;
     }
 
-    public Map<String, String> getEnvVarsFileProperty(FilePath rootPath,
+    @Nonnull
+    public Map<String, String> getEnvVarsFileProperty(@Nonnull FilePath rootPath,
                                                       EnvInjectLogger logger,
                                                       String propertiesFilePath,
                                                       Map<String, String> propertiesContent,
@@ -85,14 +93,25 @@ public class EnvInjectEnvVars implements Serializable {
         if (loadFromMaster) {
             Map<String, String> scriptPathExecutionEnvVars = new HashMap<String, String>();
             scriptPathExecutionEnvVars.putAll(infraEnvVarsMaster);
-            return scriptExecutor.executeScriptSection(scriptExecutionRoot, scriptFilePath, scriptContent, scriptPathExecutionEnvVars, scriptExecutionEnvVars);
+            if (scriptFilePath != null) {
+                String scriptFilePathResolved = Util.replaceMacro(scriptFilePath, scriptPathExecutionEnvVars);
+                String content = null;
+                try {
+                    content = FileUtils.readFileToString(new File(scriptFilePathResolved));
+                } catch (IOException e) {
+                    throw new EnvInjectException("Failed to load script from master", e);
+                }
+                return scriptExecutor.executeScriptSection(scriptExecutionRoot, null, content, scriptPathExecutionEnvVars, scriptExecutionEnvVars);
+            }
+            return scriptExecutor.executeScriptSection(scriptExecutionRoot, null, scriptContent, scriptPathExecutionEnvVars, scriptExecutionEnvVars);
+
         } else {
             return scriptExecutor.executeScriptSection(scriptExecutionRoot, scriptFilePath, scriptContent, scriptExecutionEnvVars, scriptExecutionEnvVars);
         }
     }
 
     @SuppressWarnings("unchecked")
-    public Map<String, String> executeAndGetMapGroovyScript(EnvInjectLogger logger, String scriptContent, Map<String, String> envVars) throws EnvInjectException {
+    public Map<String, String> executeAndGetMapGroovyScript(EnvInjectLogger logger, String scriptContent, Map<String, String> envVars) throws EnvInjectException, AbortException {
 
         if (scriptContent == null) {
             return new HashMap<String, String>();
@@ -102,7 +121,7 @@ public class EnvInjectEnvVars implements Serializable {
             return new HashMap<String, String>();
         }
 
-        logger.info(String.format("Evaluation the following Groovy script content: \n%s\n", scriptContent));
+        logger.info(String.format("Evaluation the following Groovy script content: %n%s%n", scriptContent));
 
         Binding binding = new Binding();
         String jobName = envVars.get("JOB_NAME");
@@ -124,7 +143,7 @@ public class EnvInjectEnvVars implements Serializable {
 
         Object groovyResult = groovyShell.evaluate(scriptContent);
         if (groovyResult != null && !(groovyResult instanceof Map)) {
-            throw new EnvInjectException("The evaluated Groovy script must return a Map object.");
+            throw new AbortException("The evaluated Groovy script must return a Map object.");
         }
 
         Map<String, String> result = new HashMap<String, String>();

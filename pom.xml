@@ -1,16 +1,15 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>1.444</version>
+        <version>1.532.3</version>
     </parent>
 
     <artifactId>envinject</artifactId>
-    <version>1.86-SNAPSHOT</version>
+    <version>1.93-SNAPSHOT</version>
     <packaging>hpi</packaging>
     <name>Environment Injector Plugin</name>
     <url>https://wiki.jenkins-ci.org/display/JENKINS/EnvInject+Plugin</url>
@@ -33,47 +32,55 @@
                 <role>Project Lead Developer</role>
             </roles>
         </developer>
+        <developer>
+            <id>oleg_nenashev</id>
+            <name>Oleg Nenashev</name>
+            <email>o.v.nenashev@gmail.com</email>
+            <timezone>+3</timezone>
+            <roles>
+                <role>Maintainer</role>
+            </roles>
+        </developer>
+        <developer>
+            <id>recena</id>
+            <name>Manuel Recena</name>
+            <email>recena@gmail.com</email>
+            <timezone>+1</timezone>
+            <roles>
+                <role>Contributor</role>
+            </roles>
+        </developer>
     </developers>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.6</maven.compiler.source>
         <maven.compiler.target>1.6</maven.compiler.target>
-        <envinject.lib.version>1.15</envinject.lib.version>
+        <envinject.lib.version>1.23</envinject.lib.version>
         <ivy.plugin.version>1.21</ivy.plugin.version>
-        <junit.version>4.9</junit.version>
-        <mockito.version>1.8.5</mockito.version>
-        <powermock.version>1.4.9</powermock.version>
+        <junit.version>4.12</junit.version>
+        <mockito.version>1.10.19</mockito.version>
+        <powermock.version>1.6.2</powermock.version>
     </properties>
 
     <scm>
         <connection>scm:git:git://github.com/jenkinsci/envinject-plugin.git</connection>
         <developerConnection>scm:git:git@github.com:jenkinsci/envinject-plugin.git</developerConnection>
+        <tag>HEAD</tag>
     </scm>
 
     <build>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.14.1</version>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.apache.maven.surefire</groupId>
-                        <artifactId>surefire-junit4</artifactId>
-                        <version>2.14.1</version>
-                    </dependency>
-                </dependencies>
+                <groupId>org.jenkins-ci.tools</groupId>
+                <artifactId>maven-hpi-plugin</artifactId>
+                <version>1.98</version>
+                <extensions>true</extensions>
             </plugin>
         </plugins>
     </build>
 
     <dependencies>
-        <dependency>
-            <groupId>org.jenkins-ci.main</groupId>
-            <artifactId>maven-plugin</artifactId>
-        </dependency>
-
         <dependency>
             <groupId>org.jenkins-ci.lib</groupId>
             <artifactId>envinject-lib</artifactId>
@@ -109,6 +116,12 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.jenkins-ci</groupId>
+            <artifactId>test-annotations</artifactId>
+            <version>1.2</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <repositories>
@@ -126,5 +139,3 @@
     </pluginRepositories>
 
 </project>
-
-

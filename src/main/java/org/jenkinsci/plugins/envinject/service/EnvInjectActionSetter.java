@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
+import javax.annotation.CheckForNull;
 
 
 /**
@@ -18,16 +19,18 @@ import java.util.Map;
  */
 public class EnvInjectActionSetter implements Serializable {
 
+    @CheckForNull
     private FilePath rootPath;
 
-    public EnvInjectActionSetter(FilePath rootPath) {
+    public EnvInjectActionSetter(@CheckForNull FilePath rootPath) {
         this.rootPath = rootPath;
     }
 
     public void addEnvVarsToEnvInjectBuildAction(AbstractBuild<?, ?> build, Map<String, String> envMap) throws EnvInjectException, IOException, InterruptedException {
+
         EnvInjectPluginAction envInjectAction = build.getAction(EnvInjectPluginAction.class);
         if (envInjectAction != null) {
-            envInjectAction.overrideAll(envMap);
+            envInjectAction.overrideAll(build.getSensitiveBuildVariables(), envMap);
         } else {
             if (rootPath != null) {
                 envInjectAction = new EnvInjectPluginAction(build, rootPath.act(new Callable<Map<String, String>, EnvInjectException>() {
@@ -37,7 +40,7 @@ public class EnvInjectActionSetter implements Serializable {
                         return result;
                     }
                 }));
-                envInjectAction.overrideAll(envMap);
+                envInjectAction.overrideAll(build.getSensitiveBuildVariables(), envMap);
                 build.addAction(envInjectAction);
             }
         }

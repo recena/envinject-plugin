@@ -10,6 +10,7 @@ import javax.servlet.ServletOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.io.StringWriter;
+import java.util.Collections;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -20,6 +21,12 @@ import java.util.TreeMap;
 public class EnvInjectVarList implements Serializable {
 
     private Map<String, String> envVars = new TreeMap<String, String>();
+    
+    /**
+     * Empty variables list, which should be returned if the variables are hidden
+     * due to the security settings.
+     */
+    public static final EnvInjectVarList HIDDEN = new Hidden();
 
     public EnvInjectVarList(Map<String, String> envMap) {
         if (envMap != null) {
@@ -98,7 +105,7 @@ public class EnvInjectVarList implements Serializable {
         response.setContentType("plain/text");
         StringWriter stringWriter = new StringWriter();
         for (Map.Entry<String, String> entry : envVars.entrySet()) {
-            stringWriter.write(String.format("%s%s%s\n", entry.getKey(), "=", entry.getValue()));
+            stringWriter.write(String.format("%s%s%s%n", entry.getKey(), "=", entry.getValue()));
         }
         response.getOutputStream().write(stringWriter.toString().getBytes());
     }
@@ -124,6 +131,18 @@ public class EnvInjectVarList implements Serializable {
         sb.delete(0, 1);
         outputStream.write(sb.toString().getBytes());
         outputStream.write("]}}".getBytes());
+    }
+    
+    //TODO: Throw errors in responses?
+    /**
+     * Implements an {@link EnvInjectVarList}, which does not provide any variables.
+     */
+    private static class Hidden extends EnvInjectVarList {
+        private static final long serialVersionUID = 1L;
+
+        public Hidden() {
+            super(Collections.<String,String>emptyMap());
+        }  
     }
 
 }

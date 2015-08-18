@@ -17,6 +17,13 @@
                     checked="${instance.keepBuildVariables}" default="${true}"/>
         </f:entry>
 
+        <f:entry field="overrideBuildParameters" title="${%Override Build Parameters}">
+            <f:checkbox
+                    name="overrideBuildParameters"
+                    checked="${instance.overrideBuildParameters}" default="${false}"/>
+        </f:entry>
+
+
         <f:entry title="${%Script File Path}"
                  help="/descriptor/org.jenkinsci.plugins.envinject.EnvInjectJobProperty/help/scriptFilePath">
             <f:textbox
@@ -33,7 +40,8 @@
 
         <f:entry title="${%Evaluated Groovy script}"
                  help="/descriptor/org.jenkinsci.plugins.envinject.EnvInjectJobProperty/help/groovyScriptContent">
-            <f:textarea
+            <j:getStatic var="permission" className="hudson.model.Hudson" field="RUN_SCRIPTS"/>
+            <f:textarea readonly="${h.hasPermission(it,permission) ? null : 'readonly'}"
                     name="envInjectInfoJobProperty.groovyScriptContent"
                     value="${instance.info.groovyScriptContent}"/>
         </f:entry>
